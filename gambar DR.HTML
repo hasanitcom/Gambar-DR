@@ -5,54 +5,63 @@
     <title>Cloudinary Image Uploader - GudangResto</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Poppins', sans-serif; background: #f4f7f6; display: flex; justify-content: center; padding: 40px; }
-        .card { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 20px rgba(0,0,0,0.05); width: 100%; max-width: 450px; text-align: center; }
+        body { font-family: 'Poppins', sans-serif; background: #f4f7f6; display: flex; flex-direction: column; align-items: center; padding: 40px; }
+        .card { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 20px rgba(0,0,0,0.05); width: 100%; max-width: 450px; text-align: center; margin-bottom: 30px; }
         .upload-area { border: 2px dashed #d97706; padding: 20px; border-radius: 10px; margin-bottom: 20px; cursor: pointer; }
-        button { background: #1b4332; color: white; border: none; padding: 12px 25px; border-radius: 6px; cursor: pointer; font-weight: 600; width: 100%; }
-        #result { margin-top: 20px; display: none; }
-        input[type="text"] { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 5px; background: #f9f9f9; }
-        img { width: 100%; border-radius: 8px; margin-top: 10px; }
+        button { background: #1b4332; color: white; border: none; padding: 12px 25px; border-radius: 6px; cursor: pointer; font-weight: 600; width: 100%; transition: 0.3s; }
+        button:hover { background: #143225; }
+        #status { margin-top: 10px; font-size: 0.9rem; font-weight: 600; }
+        
+        /* Gaya Riwayat Gambar */
+        .history-section { width: 100%; max-width: 600px; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
+        .history-item { display: flex; align-items: center; gap: 15px; padding: 10px; border-bottom: 1px solid #eee; margin-bottom: 10px; }
+        .history-item img { width: 60px; height: 60px; object-fit: cover; border-radius: 5px; }
+        .history-info { flex: 1; overflow: hidden; }
+        .history-info input { width: 100%; padding: 5px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.8rem; background: #f9f9f9; }
+        .btn-copy { width: auto; padding: 5px 10px; font-size: 0.7rem; margin-top: 5px; background: #334155; }
+        .btn-clear { background: #be123c; margin-top: 20px; font-size: 0.8rem; }
     </style>
 </head>
 <body>
 
 <div class="card">
     <h2>Upload Foto Katalog</h2>
-    <p style="font-size: 0.8rem; color: #666;">Pilih gambar alat resto/kantor untuk mendapatkan link URL</p>
+    <p style="font-size: 0.8rem; color: #666;">Pilih gambar untuk mendapatkan link URL permanen</p>
     
     <div class="upload-area">
         <input type="file" id="fileInput" accept="image/*">
     </div>
     
     <button id="uploadBtn">Upload ke Cloudinary</button>
+    <div id="status"></div>
+</div>
 
-    <div id="status" style="margin-top: 10px; font-size: 0.9rem;"></div>
-
-    <div id="result">
-        <p style="font-weight: 600; text-align: left; margin-bottom: 5px;">Link Gambar Anda:</p>
-        <input type="text" id="linkUrl" readonly onclick="this.select()">
-        <p style="font-size: 0.7rem; color: #d97706;">*Klik link untuk menyalin</p>
-        <img id="preview" src="" alt="Preview">
-    </div>
+<div class="history-section" id="historySection" style="display: none;">
+    <h3 style="margin-bottom: 15px; color: #1b4332;">Riwayat Unggahan</h3>
+    <div id="historyList"></div>
+    <button class="btn-clear" onclick="clearHistory()">Hapus Semua Riwayat</button>
 </div>
 
 <script>
-    const cloudName = "ISI_CLOUD_NAME_ANDA"; // Gantilah dengan Cloud Name Anda
-    const uploadPreset = "ISI_UPLOAD_PRESET_ANDA"; // Gantilah dengan Upload Preset (Unsigned) Anda
+    const cloudName = "dmawwoupq"; 
+    const uploadPreset = "gambar DR"; 
 
     const uploadBtn = document.getElementById('uploadBtn');
     const fileInput = document.getElementById('fileInput');
     const status = document.getElementById('status');
-    const resultDiv = document.getElementById('result');
-    const linkUrl = document.getElementById('linkUrl');
-    const preview = document.getElementById('preview');
+    const historyList = document.getElementById('historyList');
+    const historySection = document.getElementById('historySection');
+
+    // Load history saat halaman dibuka
+    window.onload = loadHistory;
 
     uploadBtn.addEventListener('click', async () => {
         const file = fileInput.files[0];
         if (!file) return alert("Silakan pilih file dulu.");
 
         uploadBtn.disabled = true;
-        status.innerText = "Proses mengunggah...";
+        status.style.color = "#d97706";
+        status.innerText = "⏳ Sedang mengunggah...";
 
         const formData = new FormData();
         formData.append('file', file);
@@ -67,20 +76,64 @@
             const data = await response.json();
 
             if (data.secure_url) {
-                status.innerText = "Upload Berhasil!";
-                linkUrl.value = data.secure_url;
-                preview.src = data.secure_url;
-                resultDiv.style.display = 'block';
+                status.style.color = "#1b4332";
+                status.innerText = "✅ Berhasil!";
+                saveToHistory(data.secure_url);
+                fileInput.value = ""; // Reset input
             } else {
-                status.innerText = "Gagal: " + (data.error ? data.error.message : "Error tidak diketahui");
+                status.style.color = "red";
+                status.innerText = "❌ Gagal: " + (data.error ? data.error.message : "Error");
             }
         } catch (error) {
-            console.error(error);
-            status.innerText = "Terjadi kesalahan koneksi.";
+            status.style.color = "red";
+            status.innerText = "❌ Kesalahan koneksi.";
         } finally {
             uploadBtn.disabled = false;
         }
     });
+
+    function saveToHistory(url) {
+        let history = JSON.parse(localStorage.getItem('uploadHistory')) || [];
+        history.unshift(url); // Tambah ke paling atas
+        localStorage.setItem('uploadHistory', JSON.stringify(history));
+        renderHistory();
+    }
+
+    function loadHistory() {
+        renderHistory();
+    }
+
+    function renderHistory() {
+        const history = JSON.parse(localStorage.getItem('uploadHistory')) || [];
+        if (history.length > 0) {
+            historySection.style.display = 'block';
+            historyList.innerHTML = history.map((url, index) => `
+                <div class="history-item">
+                    <img src="${url}" alt="thumb">
+                    <div class="history-info">
+                        <input type="text" value="${url}" id="url-${index}" readonly>
+                        <button class="btn-copy" onclick="copyUrl('url-${index}')">Salin Link</button>
+                    </div>
+                </div>
+            `).join('');
+        } else {
+            historySection.style.display = 'none';
+        }
+    }
+
+    function copyUrl(id) {
+        const input = document.getElementById(id);
+        input.select();
+        document.execCommand("copy");
+        alert("Link berhasil disalin!");
+    }
+
+    function clearHistory() {
+        if(confirm("Hapus semua riwayat unggahan? Gambar di Cloudinary tidak akan terhapus.")) {
+            localStorage.removeItem('uploadHistory');
+            renderHistory();
+        }
+    }
 </script>
 
 </body>
